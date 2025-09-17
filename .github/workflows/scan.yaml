@@ -1,0 +1,44 @@
+name: Proxy Scanner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */6 * * *"
+  push:
+    branches:
+      - master
+
+jobs:
+  scanner:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: proxy-scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: master
+
+      - name: Use bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Ensure package.json exists
+        run: |
+          if [ ! -f package.json ]; then
+            bun init -y
+          fi
+
+      - name: Start scan
+        run: |
+          bun install && bun run ./helper/proxyip.ts
+
+      - name: Publish result
+        if: ${{ success() }}
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git commit -m "Update proxy"
+          git push origin master
